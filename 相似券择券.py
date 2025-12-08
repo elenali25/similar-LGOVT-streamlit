@@ -9,8 +9,8 @@ from pathlib import Path
 # 1. 区域等级定义与查找 (保持不变)
 # ***************************************************************
 
-A_REGIONS_CORE = ['广东', '浙江', '北京', '上海', '深圳', '江苏', '宁波', '厦门', '广州']
-C_REGIONS_CORE = ['云南', '贵州', '内蒙古', '黑龙江', '吉林', '辽宁', '天津', '西藏', '海南', '广西壮族', '青海']
+A_REGIONS_CORE = ['浙江', '广东', '北京', '上海', '江苏']
+C_REGIONS_CORE = ['云南', '贵州', '内蒙古', '黑龙江', '吉林', '辽宁', '天津', '西藏', '甘肃']
 
 def create_region_level(region):
     """ 定义区域信用等级：A (好), B (中), C (差) """
@@ -48,7 +48,8 @@ def find_region_and_level(user_input_region, all_regions_data):
 # ***************************************************************
 
 @st.cache_data
-def load_data(uploaded_file_or_path):
+-def load_data(uploaded_file_or_path):
++def load_data(uploaded_file_or_path, version_key=None):
     """
     加载用户上传的文件，并进行日期筛选和数据清洗。
     """
@@ -193,14 +194,17 @@ def main():
     if uploaded_file is None:
         # 尝试使用仓库中的默认样本数据
         sample_path = Path(__file__).resolve().parent / "样本数据.xlsx"
-        if sample_path.exists():
-            st.info("未上传文件，已自动加载仓库中的默认样本数据。")
-            df = load_data(str(sample_path))
-        else:
-            st.info("👈 请在左侧边栏上传您的数据文件开始属性筛选。")
-            st.sidebar.header("输入目标属性")
-            st.sidebar.warning("数据未加载")
-            return
++        sample_path = Path(__file__).resolve().parent / "样本数据.xlsx"
+         if sample_path.exists():
+             st.info("未上传文件，已自动加载仓库中的默认样本数据。")
+-            df = load_data(str(sample_path))
++            # 将文件修改时间作为额外的缓存键，确保样本更新能触发重新加载
++            df = load_data(str(sample_path), version_key=sample_path.stat().st_mtime)
+         else:
+             st.info("👈 请在左侧边栏上传您的数据文件开始属性筛选。")
+             st.sidebar.header("输入目标属性")
+             st.sidebar.warning("数据未加载")
+             return
     
     # df 是包含最近 5 个交易日数据的基础数据框
     if uploaded_file is not None:
@@ -366,3 +370,9 @@ def main():
 
 if __name__ == '__main__':
     main()
++    # 在侧边栏显示最新数据日期，便于用户核对
++    if '当前日期' in df.columns and not df['当前日期'].empty:
++        try:
++            st.sidebar.success(f"最新数据日期：{df['当前日期'].max().strftime('%Y-%m-%d')}")
++        except Exception:
++            pass
